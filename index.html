@@ -345,7 +345,7 @@
                 </div>
 
                 <!-- SECCIÓN DE GEORREFERENCIAMIENTO GIS DE MAR DEL PLATA -->
-                <div class="bg-gradient-to-br from-slate-50 to-blue-50/40 p-4 rounded-xl border-2 border-blue-200/80 space-y-4">
+                <div id="gis-validation-section" class="bg-gradient-to-br from-slate-50 to-blue-50/40 p-4 rounded-xl border-2 border-blue-200/80 space-y-4">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <div class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs">
@@ -372,7 +372,7 @@
                             </div>
                         </div>
                         <div class="sm:col-span-4 flex items-end">
-                            <button type="button" onclick="validarDireccionGIS()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 px-3 rounded-lg transition shadow flex items-center justify-center gap-2">
+                            <button id="validar-gis-btn" type="button" onclick="validarDireccionGIS()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 px-3 rounded-lg transition shadow flex items-center justify-center gap-2">
                                 <i class="fa-solid fa-satellite"></i>
                                 <span>Validar en GIS MGP</span>
                             </button>
@@ -408,34 +408,6 @@
 
                     <!-- MAPA GIS OFICIAL MGP & INTEGRACIÓN GOOGLE MAPS -->
                     <div class="space-y-2 pt-1">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <!-- Selector de pestañas: GIS MGP vs Google Maps -->
-                            <div class="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 shadow-sm text-xs">
-                                <button type="button" id="tab-btn-gis" onclick="switchMapMode('gis')" class="px-3 py-1.5 rounded-md font-bold bg-[#00548f] text-white flex items-center gap-1.5 transition">
-                                    <i class="fa-solid fa-draw-polygon text-sky-300"></i>
-                                    <span>Mapa GIS con Polígono</span>
-                                </button>
-                                <button type="button" id="tab-btn-gmaps" onclick="switchMapMode('gmaps')" class="px-3 py-1.5 rounded-md font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition">
-                                    <i class="fa-brands fa-google text-red-500"></i>
-                                    <span>Google Maps Oficial</span>
-                                </button>
-                            </div>
-
-                            <!-- Acciones rápidas de mapa -->
-                            <div class="flex items-center gap-2">
-                                <div id="gis-basemap-buttons" class="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-[10px] font-semibold text-slate-700">
-                                    <button type="button" onclick="setGisBasemap('streets')" id="btn-base-streets" class="px-2 py-1 rounded bg-white text-slate-800 shadow-xs">Callejero</button>
-                                    <button type="button" onclick="setGisBasemap('satellite')" id="btn-base-satellite" class="px-2 py-1 rounded text-slate-600 hover:text-slate-900">Satélite</button>
-                                </div>
-                                <a id="btn-google-maps" href="https://maps.google.com" target="_blank" rel="noopener noreferrer" 
-                                   class="text-[11px] font-bold bg-white hover:bg-slate-50 text-blue-700 border border-blue-300 shadow-sm px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition">
-                                    <i class="fa-solid fa-diamond-turn-right text-emerald-600"></i>
-                                    <span>Ruta en Maps</span>
-                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-slate-400"></i>
-                                </a>
-                            </div>
-                        </div>
-
                         <!-- Contenedor del Visor GIS MGP (Leaflet con capa Esri sin marcas de agua) -->
                         <div id="view-gis-container" class="relative">
                             <div id="gis-map" class="w-full h-72 sm:h-80 rounded-xl border-2 border-slate-300 shadow-inner"></div>
@@ -476,12 +448,9 @@
 
                 <!-- Botones de Acción del Formulario -->
                 <div class="pt-3 flex flex-col sm:flex-row items-center gap-3">
-                    <button type="button" onclick="consultarTurnos()" class="w-full sm:w-auto bg-[#00548f] hover:bg-[#004273] text-white text-xs font-bold py-3 px-8 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                    <button id="consultar-btn" type="button" onclick="consultarTurnos()" disabled class="w-full sm:w-auto bg-[#00548f] hover:bg-[#004273] text-white text-xs font-bold py-3 px-8 rounded-xl shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#00548f]">
                         <i class="fa-solid fa-magnifying-glass"></i>
                         <span>Consultar</span>
-                    </button>
-                    <button type="button" onclick="limpiarFormulario()" class="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-3 px-6 rounded-xl border border-slate-300 transition flex items-center justify-center gap-2">
-                        <span>Limpiar</span>
                     </button>
                 </div>
             </section>
@@ -1000,8 +969,14 @@
         }
 
         function validarDireccionGIS() {
+            const consultarBtn = document.getElementById('consultar-btn');
+            const validarBtn = document.getElementById('validar-gis-btn');
             const inputVal = document.getElementById('user-direccion').value.trim();
+
+            if (validarBtn) validarBtn.disabled = false;
+
             if (!inputVal) {
+                if (consultarBtn) consultarBtn.disabled = true;
                 showToast("Por favor ingresá una calle y altura.");
                 return;
             }
@@ -1028,37 +1003,22 @@
 
                 resultBox.className = "rounded-xl p-3.5 border bg-emerald-50 border-emerald-200 text-emerald-900 text-xs space-y-2 animate-in fade-in";
                 resultBox.innerHTML = `
-                    <div class="font-bold flex items-center justify-between text-emerald-800 text-sm">
+                    <div class="font-bold flex items-center text-emerald-800 text-sm">
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-check text-emerald-600"></i> ¡Dirección Habilitada para Quirófano Móvil!</span>
-                        <a href="${gmapsLink}" target="_blank" rel="noopener noreferrer" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2.5 py-1 rounded transition flex items-center gap-1">
-                            <i class="fa-solid fa-diamond-turn-right"></i> Ver en Maps
-                        </a>
                     </div>
-                    <p class="text-emerald-700">
-                        La API GIS del Municipio confirmó que <strong>"${inputVal}"</strong> pertenece al <strong>Barrio Aeroparque</strong>.
-                        Cumplís con el requisito de zonificación para castrar a tu mascota en la <strong>Soc. de Fomento Aeroparque (Jovellanos 1620)</strong>.
-                    </p>
                 `;
+                if (consultarBtn) consultarBtn.disabled = false;
             } else {
                 badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300";
                 badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Fuera de Polígono';
 
                 resultBox.className = "rounded-xl p-3.5 border bg-rose-50 border-rose-200 text-rose-900 text-xs space-y-2 animate-in fade-in";
                 resultBox.innerHTML = `
-                    <div class="font-bold flex items-center justify-between text-rose-800 text-sm">
+                    <div class="font-bold flex items-center text-rose-800 text-sm">
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-xmark text-rose-600"></i> Dirección fuera de la zona del Quirófano Móvil</span>
-                        <a href="${gmapsLink}" target="_blank" rel="noopener noreferrer" class="text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold px-2.5 py-1 rounded transition flex items-center gap-1">
-                            <i class="fa-solid fa-diamond-turn-right"></i> Ver en Maps
-                        </a>
                     </div>
-                    <p class="text-rose-700">
-                        Según el GIS Municipal, la dirección ingresada corresponde a <strong>${res.barrio}</strong>. 
-                        Por disposición de Zoonosis MGP, las unidades barriales son de atención exclusiva para residentes del barrio sede.
-                    </p>
-                    <p class="text-slate-600 text-[11px] pt-0.5">
-                        👉 <em>Podrás reservar turno seleccionando la sede central <strong>Zoonosis Central (Canesa y Guanahani)</strong> o esperar al turno del Quirófano Móvil en tu barrio.</em>
-                    </p>
                 `;
+                if (consultarBtn) consultarBtn.disabled = true;
             }
 
             updateUserMarkerOnMap(res.lat, res.lng, res.dentroBarrio, inputVal);
@@ -1072,12 +1032,16 @@
         function handleLugarChange() {
             const lugar = document.getElementById('select-lugar').value;
             const help = document.getElementById('lugar-help-notice');
+            const gisSection = document.getElementById('gis-validation-section');
+
             if (lugar === 'quirofano_aeroparque') {
                 help.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> <span>El Quirófano Móvil requiere validación de domicilio barrial por Sistema GIS del Municipio.</span>`;
                 help.className = "mt-1 text-[11px] text-amber-700 font-medium flex items-center gap-1.5";
+                if (gisSection) gisSection.classList.remove('hidden');
             } else {
                 help.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span>La Sede Central Zoonosis está abierta para residentes de cualquier barrio de Gral. Pueyrredon.</span>`;
                 help.className = "mt-1 text-[11px] text-emerald-700 font-medium flex items-center gap-1.5";
+                if (gisSection) gisSection.classList.add('hidden');
             }
         }
 
