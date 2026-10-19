@@ -406,15 +406,71 @@
                         <!-- Contenido inyectado por JS -->
                     </div>
 
-                    <!-- Mapa interactivo Leaflet con polígono GIS del Barrio Aeroparque -->
-                    <div class="space-y-1">
-                        <div class="flex items-center justify-between text-[11px] text-slate-600">
-                            <span class="font-bold flex items-center gap-1">
-                                <i class="fa-solid fa-map"></i> Mapa Catastral GIS del Partido de Gral. Pueyrredon
-                            </span>
-                            <span class="text-[10px] text-slate-500">Polígono Barrio Aeroparque (#44) + Quirófano</span>
+                    <!-- MAPA GIS OFICIAL MGP & INTEGRACIÓN GOOGLE MAPS -->
+                    <div class="space-y-2 pt-1">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <!-- Selector de pestañas: GIS MGP vs Google Maps -->
+                            <div class="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 shadow-sm text-xs">
+                                <button type="button" id="tab-btn-gis" onclick="switchMapMode('gis')" class="px-3 py-1.5 rounded-md font-bold bg-[#00548f] text-white flex items-center gap-1.5 transition">
+                                    <i class="fa-solid fa-draw-polygon text-sky-300"></i>
+                                    <span>Mapa GIS con Polígono</span>
+                                </button>
+                                <button type="button" id="tab-btn-gmaps" onclick="switchMapMode('gmaps')" class="px-3 py-1.5 rounded-md font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition">
+                                    <i class="fa-brands fa-google text-red-500"></i>
+                                    <span>Google Maps Oficial</span>
+                                </button>
+                            </div>
+
+                            <!-- Acciones rápidas de mapa -->
+                            <div class="flex items-center gap-2">
+                                <div id="gis-basemap-buttons" class="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-[10px] font-semibold text-slate-700">
+                                    <button type="button" onclick="setGisBasemap('streets')" id="btn-base-streets" class="px-2 py-1 rounded bg-white text-slate-800 shadow-xs">Callejero</button>
+                                    <button type="button" onclick="setGisBasemap('satellite')" id="btn-base-satellite" class="px-2 py-1 rounded text-slate-600 hover:text-slate-900">Satélite</button>
+                                </div>
+                                <a id="btn-google-maps" href="https://maps.google.com" target="_blank" rel="noopener noreferrer" 
+                                   class="text-[11px] font-bold bg-white hover:bg-slate-50 text-blue-700 border border-blue-300 shadow-sm px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                                    <i class="fa-solid fa-diamond-turn-right text-emerald-600"></i>
+                                    <span>Ruta en Maps</span>
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-slate-400"></i>
+                                </a>
+                            </div>
                         </div>
-                        <div id="gis-map" class="w-full h-56 rounded-xl border border-slate-300 shadow-inner"></div>
+
+                        <!-- Contenedor del Visor GIS MGP (Leaflet con capa Esri sin marcas de agua) -->
+                        <div id="view-gis-container" class="relative">
+                            <div id="gis-map" class="w-full h-72 sm:h-80 rounded-xl border-2 border-slate-300 shadow-inner"></div>
+                            
+                            <!-- Leyenda flotante sobre el mapa -->
+                            <div class="absolute bottom-2 left-2 z-[400] bg-white/95 backdrop-blur-xs p-2 rounded-lg border border-slate-300 shadow-md text-[10px] space-y-1 max-w-[240px]">
+                                <div class="font-bold text-slate-700 border-b pb-0.5 mb-1 flex items-center justify-between">
+                                    <span>Referencias Catastrales</span>
+                                    <span class="text-[9px] text-sky-700 font-semibold">MGP GIS</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-slate-700">
+                                    <span class="w-3.5 h-3.5 rounded border border-sky-600 bg-sky-400/40 shrink-0"></span>
+                                    <span class="truncate">Polígono Barrio Aeroparque</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-slate-700">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-blue-700 text-white flex items-center justify-center text-[7px] shrink-0"><i class="fa-solid fa-truck-medical"></i></span>
+                                    <span class="truncate">Móvil: Jovellanos 1620</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-slate-700">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[7px] shrink-0"><i class="fa-solid fa-house"></i></span>
+                                    <span class="truncate">Domicilio del Vecino</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contenedor de Google Maps Embed Oficial -->
+                        <div id="view-gmaps-container" class="hidden">
+                            <div class="w-full h-72 sm:h-80 rounded-xl border-2 border-slate-300 overflow-hidden shadow-inner bg-slate-100 relative">
+                                <iframe id="gmaps-iframe" class="w-full h-full border-0" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" src="about:blank"></iframe>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-1 flex items-center justify-between px-1">
+                                <span>Vista directa de Google Maps con la ubicación del Quirófano Móvil y tu domicilio.</span>
+                                <span class="font-semibold text-blue-600">Coordenadas: Jovellanos 1620, Mar del Plata</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -658,6 +714,9 @@
         let quirofanoMarker = null;
         let polygonLayer = null;
         let routeLine = null;
+        let streetLayer = null;
+        let satelliteLayer = null;
+        let currentBasemap = 'streets';
 
         // Algoritmo Ray-Casting (Point-in-Polygon) para validar contra geometrías GIS
         function isPointInPolygon(point, vs) {
@@ -670,6 +729,57 @@
                 if (intersect) inside = !inside;
             }
             return inside;
+        }
+
+        // Función de geocodificación y validación de dirección contra API GIS MGP
+        function geolocalizarDireccionMGP(inputStr) {
+            const normalizado = inputStr.toLowerCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/av\.|avenida/g, "")
+                .trim();
+
+            const matchNumero = normalizado.match(/\d+/);
+            const altura = matchNumero ? parseInt(matchNumero[0], 10) : 1500;
+
+            logGisConsole(`POST /api/v1/georef/search?q=${encodeURIComponent(inputStr)}`);
+
+            // Buscar coincidencia en la base de datos de calles de MGP
+            let match = DIRECCIONES_MGP.find(item => {
+                const calleSimple = item.calle.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                return normalizado.includes(calleSimple);
+            });
+
+            let lat, lng, barrio, dentroBarrio;
+
+            if (match) {
+                lat = match.lat;
+                lng = match.lng;
+                barrio = match.barrio;
+                dentroBarrio = match.dentro && (altura >= match.alturaMin && altura <= match.alturaMax);
+                if (match.dentro && (altura < match.alturaMin || altura > match.alturaMax)) {
+                    dentroBarrio = false;
+                    barrio = `${match.barrio} (Altura fuera de polígono)`;
+                }
+            } else {
+                // Dirección no registrada en las pruebas: simular ubicación en Mar del Plata fuera de Aeroparque
+                lat = -38.0020 + (Math.random() * 0.01 - 0.005);
+                lng = -57.5560 + (Math.random() * 0.01 - 0.005);
+                barrio = "OTRO BARRIO DE GENERAL PUEYRREDON";
+                dentroBarrio = false;
+            }
+
+            // Doble validación geométrica con algoritmo Ray-Casting
+            const validacionGeometrica = isPointInPolygon([lat, lng], AEROPARQUE_POLYGON);
+            dentroBarrio = dentroBarrio || validacionGeometrica;
+
+            logGisConsole(`RESPONSE: 200 OK | Coords: [${lat.toFixed(4)}, ${lng.toFixed(4)}] | Barrio: ${barrio} | InPolygon: ${dentroBarrio}`);
+
+            return {
+                lat,
+                lng,
+                barrio,
+                dentroBarrio
+            };
         }
 
         // Cálculo de distancia geodésica (Haversine)
@@ -696,6 +806,66 @@
             if (btn) {
                 btn.href = gmapsUrl;
             }
+
+            // Actualizar el iframe de Google Maps centrado en el punto del usuario y el quirófano
+            const iframe = document.getElementById('gmaps-iframe');
+            if (iframe) {
+                const centerLat = userCoords ? (userCoords[0] + QUIROFANO_COORDS.lat) / 2 : QUIROFANO_COORDS.lat;
+                const centerLng = userCoords ? (userCoords[1] + QUIROFANO_COORDS.lng) / 2 : QUIROFANO_COORDS.lng;
+                iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(userAddr + ', Mar del Plata')}&ll=${centerLat},${centerLng}&z=15&output=embed`;
+            }
+        }
+
+        // Alterna entre el visor GIS de polígono y Google Maps embed
+        function switchMapMode(mode) {
+            const gisView = document.getElementById('view-gis-container');
+            const gmapsView = document.getElementById('view-gmaps-container');
+            const tabGis = document.getElementById('tab-btn-gis');
+            const tabGmaps = document.getElementById('tab-btn-gmaps');
+            const basemapBtns = document.getElementById('gis-basemap-buttons');
+
+            if (mode === 'gis') {
+                gisView.classList.remove('hidden');
+                gmapsView.classList.add('hidden');
+                basemapBtns.classList.remove('hidden');
+
+                tabGis.className = "px-3 py-1.5 rounded-md font-bold bg-[#00548f] text-white flex items-center gap-1.5 transition";
+                tabGmaps.className = "px-3 py-1.5 rounded-md font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition";
+
+                if (mapInstance) {
+                    setTimeout(() => {
+                        mapInstance.invalidateSize();
+                        fitMapBounds();
+                    }, 100);
+                }
+            } else {
+                gisView.classList.add('hidden');
+                gmapsView.classList.remove('hidden');
+                basemapBtns.classList.add('hidden');
+
+                tabGmaps.className = "px-3 py-1.5 rounded-md font-bold bg-[#00548f] text-white flex items-center gap-1.5 transition";
+                tabGis.className = "px-3 py-1.5 rounded-md font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition";
+            }
+        }
+
+        // Alterna capas de fondo en el visor GIS (Callejero vs Satelital)
+        function setGisBasemap(type) {
+            if (!mapInstance || !streetLayer || !satelliteLayer) return;
+            currentBasemap = type;
+            const btnStreets = document.getElementById('btn-base-streets');
+            const btnSatellite = document.getElementById('btn-base-satellite');
+
+            if (type === 'streets') {
+                if (mapInstance.hasLayer(satelliteLayer)) mapInstance.removeLayer(satelliteLayer);
+                if (!mapInstance.hasLayer(streetLayer)) mapInstance.addLayer(streetLayer);
+                btnStreets.className = "px-2 py-1 rounded bg-white text-slate-800 shadow-xs font-bold";
+                btnSatellite.className = "px-2 py-1 rounded text-slate-600 hover:text-slate-900";
+            } else {
+                if (mapInstance.hasLayer(streetLayer)) mapInstance.removeLayer(streetLayer);
+                if (!mapInstance.hasLayer(satelliteLayer)) mapInstance.addLayer(satelliteLayer);
+                btnSatellite.className = "px-2 py-1 rounded bg-white text-slate-800 shadow-xs font-bold";
+                btnStreets.className = "px-2 py-1 rounded text-slate-600 hover:text-slate-900";
+            }
         }
 
         // Ajusta el zoom del mapa para ver el polígono, el móvil y la casa del usuario
@@ -708,106 +878,64 @@
             mapInstance.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
         }
 
-        // Simula la llamada a la API GIS del Municipio:
-        // 1. Georreferenciación directa (Calle/Altura -> Lat/Lng)
-        // 2. Consulta de Polígono de Barrio
-        function geolocalizarDireccionMGP(addressString) {
-            logGisConsole(`➡️ GET /api/v1/gis/georef?q=${encodeURIComponent(addressString)}&partido=045`);
-            
-            const clean = addressString.toLowerCase().replace(/[.,]/g, '').trim();
-            
-            // Buscar si coincide con la base conocida
-            let matched = null;
-            for (const item of DIRECCIONES_MGP) {
-                if (clean.includes(item.calle)) {
-                    matched = item;
-                    break;
-                }
-            }
-
-            if (matched) {
-                const inPoly = isPointInPolygon([matched.lat, matched.lng], AEROPARQUE_POLYGON);
-                logGisConsole(`✅ Geocodificación OK: Coords [${matched.lat.toFixed(4)}, ${matched.lng.toFixed(4)}]`);
-                logGisConsole(`🔍 Spatial Intersect Polígono 44 (AEROPARQUE): ${inPoly ? 'TRUE (DENTRO)' : 'FALSE (FUERA)'}`);
-                
-                return {
-                    success: true,
-                    lat: matched.lat,
-                    lng: matched.lng,
-                    barrio: matched.barrio,
-                    dentroBarrio: inPoly || matched.dentro,
-                    mensaje: inPoly ? 'Pertenece al Barrio Aeroparque' : `Pertenece a ${matched.barrio}`
-                };
-            }
-
-            // Fallback para direcciones no indexadas
-            const isAeroparqueMention = clean.includes("aeroparque") || clean.includes("jovellanos") || clean.includes("paolera") || clean.includes("pelayo");
-            const coords = isAeroparqueMention ? [-37.9485, -57.5682] : [-37.9580, -57.5380];
-            const inPoly = isAeroparqueMention;
-
-            logGisConsole(`⚠️ Geocodificación estimada: Coords [${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}]`);
-            logGisConsole(`🔍 Spatial Intersect Polígono 44: ${inPoly ? 'TRUE' : 'FALSE'}`);
-
-            return {
-                success: true,
-                lat: coords[0],
-                lng: coords[1],
-                barrio: inPoly ? "AEROPARQUE" : "OTRO BARRIO DE MAR DEL PLATA",
-                dentroBarrio: inPoly,
-                mensaje: inPoly ? 'Pertenece al Barrio Aeroparque' : 'Fuera del polígono de Barrio Aeroparque'
-            };
-        }
-
         function initLeafletMap() {
             if (mapInstance) return;
 
             // Centro en Barrio Aeroparque Jovellanos 1620
-            mapInstance = L.map('gis-map').setView([QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng], 14);
+            mapInstance = L.map('gis-map', {
+                zoomControl: true,
+                attributionControl: true
+            }).setView([QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng], 14);
 
-            // Capa CartoDB Voyager: libre de bloqueos 403 y con estética cartográfica clara
-            const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                subdomains: 'abcd',
+            // Capa 1: Esri World Street Map (100% limpia, sin watermark de "API KEY REQUIRED" y sin bloqueos 403)
+            streetLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
                 maxZoom: 19,
-                attribution: '&copy; CartoDB &copy; Municipalidad de General Pueyrredon GIS'
+                attribution: '&copy; Esri &bull; Sistema GIS Municipalidad de General Pueyrredon'
             });
 
-            // En caso de fallo de red, fallback hacia ArcGIS World Street Map
-            cartoVoyager.on('tileerror', function() {
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-                    maxZoom: 18,
-                    attribution: '&copy; Esri &copy; Municipalidad de Gral. Pueyrredon GIS'
-                }).addTo(mapInstance);
+            // Capa 2: Esri World Imagery (Satelital de alta resolución)
+            satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                attribution: '&copy; Esri, Maxar, Earthstar Geographics'
             });
 
-            cartoVoyager.addTo(mapInstance);
+            // Cargar capa callejero por defecto
+            streetLayer.addTo(mapInstance);
 
             // Dibujar el Polígono Oficial del Barrio Aeroparque
             polygonLayer = L.polygon(AEROPARQUE_POLYGON, {
                 color: '#0284c7',
-                weight: 2.5,
+                weight: 3,
                 opacity: 0.95,
                 fillColor: '#38bdf8',
-                fillOpacity: 0.25,
-                dashArray: '5, 5'
+                fillOpacity: 0.28,
+                dashArray: '6, 6'
             }).addTo(mapInstance);
 
-            polygonLayer.bindTooltip("<strong>Polígono Oficial: Barrio Aeroparque</strong><br>Zona Habilitada Quirófano Móvil", {
+            polygonLayer.bindTooltip("<strong>Jurisdicción Oficial: Barrio Aeroparque (#44)</strong><br>Zona Habilitada para Quirófano Móvil Zoonosis MGP", {
                 sticky: true
             });
 
             // Marcador fijo: Quirófano Móvil (Sociedad de Fomento)
             const iconMobile = L.divIcon({
                 className: 'custom-pin-mobile',
-                html: `<div class="bg-blue-700 text-white p-2 rounded-full border-2 border-white shadow-lg flex items-center justify-center w-8 h-8 text-xs font-bold animate-pulse">
-                        <i class="fa-solid fa-truck-medical"></i>
+                html: `<div class="bg-blue-700 text-white p-2 rounded-full border-2 border-white shadow-xl flex items-center justify-center w-9 h-9 text-xs font-bold animate-pulse ring-4 ring-blue-400/40">
+                        <i class="fa-solid fa-truck-medical text-sm"></i>
                        </div>`,
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
             });
 
             quirofanoMarker = L.marker([QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng], { icon: iconMobile })
                 .addTo(mapInstance)
-                .bindPopup(`<strong>${QUIROFANO_COORDS.nombre}</strong><br>${QUIROFANO_COORDS.direccion}<br><span class="text-xs text-blue-600 font-semibold">${QUIROFANO_COORDS.horario}</span>`);
+                .bindPopup(`
+                    <div class="text-xs space-y-1">
+                        <span class="font-extrabold text-[#00548f] text-sm flex items-center gap-1"><i class="fa-solid fa-truck-medical"></i> Quirófano Móvil MGP</span>
+                        <p class="font-bold text-slate-800">${QUIROFANO_COORDS.nombre}</p>
+                        <p class="text-slate-600">${QUIROFANO_COORDS.direccion} (Barrio Aeroparque)</p>
+                        <span class="inline-block bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-semibold text-[10px] mt-1">${QUIROFANO_COORDS.horario}</span>
+                    </div>
+                `);
 
             // Marcador interactivo del usuario
             updateUserMarkerOnMap(QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng, true, "Jovellanos 1620 (Misma sede)");
@@ -824,35 +952,47 @@
             }
 
             const pinColor = isInside ? 'bg-emerald-600' : 'bg-rose-600';
+            const ringColor = isInside ? 'ring-emerald-300' : 'ring-rose-300';
             const iconUser = L.divIcon({
                 className: 'custom-pin-user',
-                html: `<div class="${pinColor} text-white p-2 rounded-full border-2 border-white shadow-xl flex items-center justify-center w-8 h-8 text-xs font-bold">
-                        <i class="fa-solid ${isInside ? 'fa-house-circle-check' : 'fa-house-circle-xmark'}"></i>
+                html: `<div class="${pinColor} text-white p-2 rounded-full border-2 border-white shadow-2xl flex items-center justify-center w-9 h-9 text-xs font-bold ring-4 ${ringColor}">
+                        <i class="fa-solid ${isInside ? 'fa-house-circle-check' : 'fa-house-circle-xmark'} text-sm"></i>
                        </div>`,
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
             });
 
             const distanceKm = calculateDistance(lat, lng, QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng);
             const distanceTxt = distanceKm < 1 
-                ? `${Math.round(distanceKm * 1000)} metros` 
-                : `${distanceKm.toFixed(1)} km`;
+                ? `${Math.round(distanceKm * 1000)} metros (~${Math.max(1, Math.round(distanceKm * 1000 / 80))} min a pie)` 
+                : `${distanceKm.toFixed(1)} km (~${Math.max(2, Math.round(distanceKm * 2.5))} min en auto)`;
 
             userMarker = L.marker([lat, lng], { icon: iconUser })
                 .addTo(mapInstance)
-                .bindPopup(`<strong>Tu Domicilio:</strong><br>${text}<br><span class="${isInside ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}">${isInside ? '✓ Dentro del Barrio Aeroparque' : '✗ Fuera de jurisdicción barrial'}</span><br><span class="text-[11px] text-slate-500">Distancia al Quirófano: ${distanceTxt}</span>`)
+                .bindPopup(`
+                    <div class="text-xs space-y-1">
+                        <span class="font-bold text-slate-800 flex items-center gap-1"><i class="fa-solid fa-map-pin text-blue-600"></i> Tu Domicilio Declarado:</span>
+                        <p class="font-semibold text-slate-900">${text}</p>
+                        <p class="${isInside ? 'text-emerald-700 font-bold bg-emerald-50' : 'text-rose-700 font-bold bg-rose-50'} px-2 py-0.5 rounded text-[11px] border ${isInside ? 'border-emerald-200' : 'border-rose-200'}">
+                            ${isInside ? '✓ Domicilio dentro del Barrio Aeroparque' : '✗ Domicilio fuera del Barrio Aeroparque'}
+                        </p>
+                        <p class="text-[11px] text-slate-600 pt-0.5">
+                            <i class="fa-solid fa-route text-slate-400"></i> Distancia al Quirófano Móvil: <strong>${distanceTxt}</strong>
+                        </p>
+                    </div>
+                `)
                 .openPopup();
 
             // Dibujar línea conectora entre el domicilio y el quirófano móvil
             const lineStyle = {
                 color: isInside ? '#059669' : '#dc2626',
-                weight: 2.5,
-                opacity: 0.8,
-                dashArray: '4, 6'
+                weight: 3,
+                opacity: 0.85,
+                dashArray: '5, 7'
             };
             routeLine = L.polyline([[lat, lng], [QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng]], lineStyle).addTo(mapInstance);
 
-            // Actualizar enlace de Google Maps con la ruta real
+            // Actualizar enlace de Google Maps con la ruta real y el iframe embebido
             updateGoogleMapsLink(text, [lat, lng]);
 
             // Ajustar vista para que el polígono y los marcadores sean visibles
