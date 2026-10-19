@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-100 text-slate-800">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva de Turnos de Zoonosis y Castración - Municipalidad de General Pueyrredon</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS & JS for MGP GIS Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        mgp: {
+                            blue: '#00548f',
+                            lightBlue: '#0084c9',
+                            sky: '#0284c7',
+                            dark: '#0f2742',
+                            accent: '#f59e0b',
+                            success: '#059669',
+                            danger: '#dc2626'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        .terms-scrollbox {
+            max-height: 90px;
+            overflow-y: scroll;
+            font-size: 0.72rem;
+            line-height: 1.35;
+        }
+        .leaflet-container {
+            font-family: 'Outfit', sans-serif;
+            border-radius: 0.75rem;
+            z-index: 10;
+        }
+    </style>
+</head>
+
+<body class="h-full font-sans antialiased flex flex-col min-h-screen text-slate-800 bg-[#f4f7f9]">
+
+    <!-- Top Bar Oficial MGP -->
+    <header class="bg-[#00548f] text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center p-1.5 border border-white/20">
+                    <i class="fa-solid fa-shield-cat text-2xl text-sky-200"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-extrabold text-base tracking-tight text-white uppercase">Municipalidad de General Pueyrredon</span>
+                        <span class="text-[10px] bg-sky-400/20 text-sky-200 font-semibold px-2 py-0.5 rounded border border-sky-400/30">GIS Mar del Plata</span>
+                    </div>
+                    <p class="text-xs text-sky-100/90 font-light">Dirección de Zoonosis y Bienestar Animal &bull; Sistema Oficial de Turnos</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="toggleGisConsole()" class="hidden md:flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg border border-white/20 transition">
+                    <i class="fa-solid fa-satellite-dish text-sky-300"></i>
+                    <span>Monitor API GIS</span>
+                </button>
+                <button onclick="resetSimulator()" class="flex items-center gap-1 text-xs bg-sky-600 hover:bg-sky-500 text-white font-medium px-3 py-1.5 rounded-lg transition shadow-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span class="hidden sm:inline">Reiniciar</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-6 lg:p-8 space-y-6">
+
+        <!-- Banner Azul "¿Ya sacaste un turno?" idéntico al portal oficial -->
+        <div class="bg-[#dbeafe] border border-[#bfdbfe] text-[#1e40af] rounded-lg p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+            <div class="flex items-center gap-2.5">
+                <i class="fa-regular fa-calendar-check text-xl text-blue-600"></i>
+                <span class="text-xs sm:text-sm font-semibold">¿Ya sacaste un turno? Podés verlo o cancelarlo desde aquí</span>
+            </div>
+            <button onclick="openModalMisTurnos()" class="bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-sm shrink-0">
+                Ver mis turnos
+            </button>
+        </div>
+
+        <div class="space-y-1">
+            <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Reserva de Turnos</h1>
+            <p class="text-xs text-slate-500 font-medium">Completá los filtros para consultar turnos de castración quirúrgica gratuita.</p>
+        </div>
+
+        <!-- Formulario Principal -->
+        <div id="booking-container" class="space-y-6">
+
+            <!-- Bloque 1: Tipo de Trámite y Dependencia -->
+            <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-blue-600"></i>
+                    Seleccioná el tipo de trámite que necesitás realizar
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Trámite</label>
+                        <select id="select-tramite" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="castracion" selected>Castración Gratuita Canina/Felina</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Dependencia</label>
+                        <select id="select-dependencia" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="zoonosis" selected>Zoonosis y Bienestar Animal</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Lugar de Atención / Quirófano</label>
+                    <select id="select-lugar" onchange="handleLugarChange()" class="w-full text-xs font-semibold border-2 border-blue-400 bg-blue-50/50 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        <option value="quirofano_aeroparque" selected>
+                            🚐 Quirófano Móvil: Soc. de Fomento Aeroparque (Jovellanos 1620) - Martes a Viernes antes de 8 hs
+                        </option>
+                        <option value="zoonosis_central">
+                            🏢 Sede Central Zoonosis: Canesa y Guanahani - Turnos Generales de Lunes a Sábado
+                        </option>
+                    </select>
+                    <p id="lugar-help-notice" class="mt-1 text-[11px] text-amber-700 font-medium flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <span>El Quirófano Móvil requiere validación de domicilio barrial por Sistema GIS del Municipio.</span>
+                    </p>
+                </div>
+            </section>
+
+            <!-- Bloque 2: Rango de Fechas y Advertencias Oficiales -->
+            <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    <i class="fa-regular fa-calendar-days text-blue-600"></i>
+                    Seleccioná el rango de fecha en que necesitás el turno
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Desde</label>
+                        <input type="date" id="date-desde" value="2026-10-27" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Hasta</label>
+                        <input type="date" id="date-hasta" value="2026-10-31" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50">
+                    </div>
+                </div>
+
+                <!-- Cuadros informativos azul y amarillo del sistema MGP -->
+                <div class="bg-blue-50/80 border border-blue-200 rounded-lg p-3 text-[11px] text-blue-800 flex items-start gap-2">
+                    <i class="fa-solid fa-info-circle text-blue-600 mt-0.5"></i>
+                    <span>Se permite <strong>un solo turno de Zoonosis por persona</strong>, cualquiera sea el trámite y sin importar quién lleve al animal. Al obtener el turno, quedás inhabilitado/a para solicitar otro durante 60 días, independientemente de si asistís o no.</span>
+                </div>
+
+                <div class="bg-amber-50/80 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-900 flex items-start gap-2">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5"></i>
+                    <span>Si no podés asistir, <strong>cancelá el turno con al menos 24 horas de anticipación</strong>. De lo contrario, el período de inhabilitación de 60 días igualmente se aplica y no podrás reservar un nuevo turno hasta que se cumpla ese plazo.</span>
+                </div>
+
+                <!-- Quién lleva al animal -->
+                <div class="pt-2">
+                    <label class="block text-xs font-semibold text-slate-700 mb-2">¿Quién lleva al animal?</label>
+                    <div class="grid grid-cols-2 gap-3 max-w-md">
+                        <label class="cursor-pointer border border-blue-500 bg-blue-50 text-blue-700 rounded-xl p-2.5 text-xs font-bold text-center flex items-center justify-center gap-2 hover:bg-blue-100 transition">
+                            <input type="radio" name="responsable" value="yo" checked class="accent-blue-600">
+                            <span>Yo mismo/a</span>
+                        </label>
+                        <label class="cursor-pointer border border-slate-300 bg-white text-slate-700 rounded-xl p-2.5 text-xs font-semibold text-center flex items-center justify-center gap-2 hover:bg-slate-50 transition">
+                            <input type="radio" name="responsable" value="otro" class="accent-blue-600">
+                            <span>Otra persona</span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bloque 3: Datos de la Mascota -->
+            <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b pb-2">
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Datos de la mascota</h2>
+                    <span class="text-[10px] text-red-500 font-semibold">* Campos obligatorios</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-2">Especie y Sexo *</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button type="button" onclick="selectEspecie('canino_macho', this)" class="especie-btn border-2 border-red-500 bg-red-50/50 text-red-700 text-xs font-bold py-2.5 px-2 rounded-lg text-center transition">
+                            Canino - Macho
+                        </button>
+                        <button type="button" onclick="selectEspecie('canino_hembra', this)" class="especie-btn border border-slate-300 bg-white text-slate-700 text-xs font-medium py-2.5 px-2 rounded-lg text-center hover:bg-slate-50 transition">
+                            Canino - Hembra
+                        </button>
+                        <button type="button" onclick="selectEspecie('felino_macho', this)" class="especie-btn border border-slate-300 bg-white text-slate-700 text-xs font-medium py-2.5 px-2 rounded-lg text-center hover:bg-slate-50 transition">
+                            Felino - Macho
+                        </button>
+                        <button type="button" onclick="selectEspecie('felino_hembra', this)" class="especie-btn border border-slate-300 bg-white text-slate-700 text-xs font-medium py-2.5 px-2 rounded-lg text-center hover:bg-slate-50 transition">
+                            Felino - Hembra
+                        </button>
+                    </div>
+                    <input type="hidden" id="pet-especie-sexo" value="Canino - Macho">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Edad *</label>
+                        <input type="text" id="pet-edad" value="2 años" placeholder="Ej: 2 años" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Raza *</label>
+                        <input type="text" id="pet-raza" value="Mestizo" placeholder="Ej: Mestizo" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Pelaje / Color (opcional)</label>
+                        <input type="text" id="pet-color" value="Marrón" placeholder="Ej: Marrón, Atigrado" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bloque 4: Consentimientos Oficiales Obligatorios -->
+            <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    <i class="fa-solid fa-file-contract text-blue-600"></i>
+                    Antes de elegir el turno
+                </h2>
+
+                <!-- Consentimiento quirúrgico -->
+                <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50 space-y-2">
+                    <span class="text-xs font-bold text-slate-800">Consentimiento quirúrgico</span>
+                    <div class="terms-scrollbox text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
+                        Por la presente autorizo a los profesionales médicos veterinarios asignados a efectuar la castración quirúrgica del animal de cual soy propietario/a, dueño/a o tenedor/a responsable, conforme a la Ordenanza Nº 22031. Declaro haber sido informado/a y tener conocimiento de que la cirugía consiste en la extracción de órganos reproductores externos y/o internos, de acuerdo con el criterio del médico veterinario interviniente. Para realizar este procedimiento será necesaria la administración de drogas anestésicas y/u otras medicaciones por vía parenteral. Asimismo tomo conocimiento de que la intervención puede requerir el abordaje de la cavidad abdominal y que como todo procedimiento quirúrgico y anestésico, implica riesgos inherentes e imprevisibles.
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
+                        <button type="button" onclick="fakeDownload('Consentimiento')" class="text-[11px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                            <i class="fa-solid fa-file-arrow-down"></i> Descargar consentimiento quirúrgico (PDF)
+                        </button>
+                        <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
+                            <input type="checkbox" id="check-consentimiento" checked class="w-4 h-4 text-blue-600 rounded accent-blue-600">
+                            <span>Leí y acepto el consentimiento quirúrgico de la intervención.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Requisitos para el día de la cirugía -->
+                <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50 space-y-2">
+                    <span class="text-xs font-bold text-slate-800">Requisitos para el día de la cirugía</span>
+                    <div class="terms-scrollbox text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
+                        • Los animales deben tener más de 6 meses de edad y cumplir con 12 horas de ayuno sólido y líquido previo a la cirugía.<br>
+                        • Los gatos y gatas deben ser trasladados en bolsa de red y/o dentro de un carrier rígido. En el caso de las hembras no deben estar preñadas ni amamantando; si han parido deben haber transcurrido al menos 60 días desde el parto.<br>
+                        • Los perros deben concurrir con collar y correa y permanecer sujetos en todo momento dentro de la dependencia o quirófano móvil. Si se trata de un perro potencialmente peligroso deberá asistir con collar, correa y bozal homologado.
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
+                        <button type="button" onclick="fakeDownload('Requisitos')" class="text-[11px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                            <i class="fa-solid fa-file-arrow-down"></i> Descargar requisitos (PDF)
+                        </button>
+                        <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
+                            <input type="checkbox" id="check-requisitos" checked class="w-4 h-4 text-blue-600 rounded accent-blue-600">
+                            <span>Leí los requisitos y me comprometo a cumplirlos el día del turno. Entiendo que si no se cumplen, la castración no se realiza.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Cuidados post operatorios -->
+                <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50 space-y-2">
+                    <span class="text-xs font-bold text-slate-800">Cuidados post operatorios</span>
+                    <div class="terms-scrollbox text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
+                        Luego de la cirugía, dejar al animal en un lugar cálido y tranquilo, sin ruidos molestos, sobre una manta colocada en el piso, no ubicarlo sobre camas ni sillones. Colocar un collar isabelino para evitar que el animal se lama o muerda la herida quirúrgica. Ofrecer agua de a poco transcurridas 4 horas desde la cirugía y comida 12 horas después en pequeña porción. Ante cualquier duda o complicación consultar con su veterinario/a de cabecera. Los puntos de sutura deberán retirarse a los 12 días de la intervención.
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
+                        <button type="button" onclick="fakeDownload('Cuidados')" class="text-[11px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                            <i class="fa-solid fa-file-arrow-down"></i> Descargar cuidados post operatorios (PDF)
+                        </button>
+                        <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
+                            <input type="checkbox" id="check-cuidados" checked class="w-4 h-4 text-blue-600 rounded accent-blue-600">
+                            <span>Leí y acepto los cuidados post operatorios de la intervención.</span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bloque 5: Datos Personales + MÓDULO GIS MUNICIPAL (CLAVE) -->
+            <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-5">
+                <div class="flex items-center justify-between border-b pb-2">
+                    <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                        <i class="fa-solid fa-id-card text-blue-600"></i>
+                        Datos personales y Domicilio (Validación GIS MGP)
+                    </h2>
+                    <span class="text-xs font-semibold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+                        API Georreferenciación Activa
+                    </span>
+                </div>
+
+                <!-- Datos de contacto -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">CUIL / CUIT *</label>
+                        <input type="text" id="user-cuil" value="20246992496" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Sexo *</label>
+                        <select id="user-sexo" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-1 focus:ring-blue-500">
+                            <option value="Masculino" selected>Masculino</option>
+                            <option value="Femenino">Femenino</option>
+                            <option value="No Binario / Otro">No Binario / Otro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Apellido y Nombre *</label>
+                        <input type="text" id="user-nombre" value="Sebastián Miguel Di Pierro" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Correo Electrónico *</label>
+                        <input type="email" id="user-email" value="dipierro.sebastian@gmail.com" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Teléfono Celular *</label>
+                        <input type="text" id="user-telefono" value="2235406964" class="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-1 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- SECCIÓN DE GEORREFERENCIAMIENTO GIS DE MAR DEL PLATA -->
+                <div class="bg-gradient-to-br from-slate-50 to-blue-50/40 p-4 rounded-xl border-2 border-blue-200/80 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-bold text-slate-900">Validación de Domicilio contra Polígono Barrial GIS MGP</h3>
+                                <p class="text-[11px] text-slate-500">Consumo de la API GIS Municipal: Geocodificación & Polígonos de Barrios</p>
+                            </div>
+                        </div>
+                        <span id="gis-status-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                            Pendiente de Validación
+                        </span>
+                    </div>
+
+                    <!-- Dirección y Altura -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <div class="sm:col-span-8">
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Calle y Altura (Mar del Plata)</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-location-pin absolute left-3 top-3 text-slate-400 text-xs"></i>
+                                <input type="text" id="user-direccion" value="Jovellanos 1620" placeholder="Ej: Jovellanos 1620 o Av. Colón 2200" 
+                                    class="w-full text-xs font-semibold pl-8 pr-3 py-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-600">
+                            </div>
+                        </div>
+                        <div class="sm:col-span-4 flex items-end">
+                            <button type="button" onclick="validarDireccionGIS()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 px-3 rounded-lg transition shadow flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-satellite"></i>
+                                <span>Validar en GIS MGP</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Botones de prueba rápida de domicilios -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ejemplos para probar el simulador:</span>
+                            <span class="text-[10px] text-slate-400">Clic para autocompletar y verificar</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button type="button" onclick="setTestAddress('Jovellanos 1620')" class="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold px-2 py-1 rounded border border-emerald-300 transition">
+                                🟢 Jovellanos 1620 (Aeroparque - MISMA SEDE)
+                            </button>
+                            <button type="button" onclick="setTestAddress('Della Paolera 1450')" class="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold px-2 py-1 rounded border border-emerald-300 transition">
+                                🟢 Della Paolera 1450 (Aeroparque - DENTRO)
+                            </button>
+                            <button type="button" onclick="setTestAddress('Av. Félix U. Camet 750')" class="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-800 font-semibold px-2 py-1 rounded border border-rose-300 transition">
+                                🔴 Av. Félix U. Camet 750 (Estrada - FUERA)
+                            </button>
+                            <button type="button" onclick="setTestAddress('San Martín 2450')" class="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-800 font-semibold px-2 py-1 rounded border border-rose-300 transition">
+                                🔴 San Martín 2450 (Centro - FUERA)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mensaje dinámico del resultado GIS -->
+                    <div id="gis-result-box" class="hidden rounded-xl p-3.5 border transition-all text-xs space-y-2">
+                        <!-- Contenido inyectado por JS -->
+                    </div>
+
+                    <!-- Mapa interactivo Leaflet con polígono GIS del Barrio Aeroparque -->
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between text-[11px] text-slate-600">
+                            <span class="font-bold flex items-center gap-1">
+                                <i class="fa-solid fa-map"></i> Mapa Catastral GIS del Partido de Gral. Pueyrredon
+                            </span>
+                            <span class="text-[10px] text-slate-500">Polígono Barrio Aeroparque (#44) + Quirófano</span>
+                        </div>
+                        <div id="gis-map" class="w-full h-56 rounded-xl border border-slate-300 shadow-inner"></div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción del Formulario -->
+                <div class="pt-3 flex flex-col sm:flex-row items-center gap-3">
+                    <button type="button" onclick="consultarTurnos()" class="w-full sm:w-auto bg-[#00548f] hover:bg-[#004273] text-white text-xs font-bold py-3 px-8 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>Consultar</span>
+                    </button>
+                    <button type="button" onclick="limpiarFormulario()" class="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-3 px-6 rounded-xl border border-slate-300 transition flex items-center justify-center gap-2">
+                        <span>Limpiar</span>
+                    </button>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- SECCIÓN DE RESULTADOS DE TURNOS (PANTALLA 3 DEL PORTAL OFICIAL) -->
+        <!-- ============================================================== -->
+        <div id="results-view" class="hidden space-y-6 animate-in fade-in duration-300">
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b gap-3">
+                    <div>
+                        <h2 id="results-title" class="text-lg font-bold text-slate-800">Turnos disponibles para Castración en Zoonosis</h2>
+                        <p id="results-subtitle" class="text-xs text-slate-500">Del 27/10/2026 al 31/10/2026</p>
+                    </div>
+                    <button onclick="editarConsulta()" class="text-xs font-bold text-blue-600 hover:text-blue-800 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-lg transition self-start sm:self-auto flex items-center gap-1.5">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <span>Editar consulta</span>
+                    </button>
+                </div>
+
+                <!-- Tabla de Turnos / Disponibilidad -->
+                <div class="overflow-hidden border border-slate-200 rounded-xl">
+                    <table class="min-w-full divide-y divide-slate-200 text-xs">
+                        <thead class="bg-slate-50 text-slate-700 font-bold">
+                            <tr>
+                                <th class="px-3 py-3 text-left">Día</th>
+                                <th class="px-3 py-3 text-left">Fecha y hora</th>
+                                <th class="px-3 py-3 text-left">Lugar</th>
+                                <th class="px-3 py-3 text-center">Estado</th>
+                                <th class="px-3 py-3 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="turnos-table-body" class="divide-y divide-slate-200 bg-white">
+                            <!-- Inyectado dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Caja de Alerta informativa en caso de que no haya o que la zona no corresponda -->
+                <div id="results-alert-box" class="p-4 rounded-xl text-xs space-y-1">
+                    <!-- Dinámico -->
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button onclick="editarConsulta()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-6 py-2.5 rounded-xl border border-slate-300 transition">
+                        Volver
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- MODAL COMPROBANTE OFICIAL DE TURNO OTORGADO                   -->
+        <!-- ============================================================== -->
+        <div id="modal-comprobante" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+            <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
+                <div class="bg-[#00548f] text-white px-5 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                            <i class="fa-solid fa-circle-check text-emerald-300"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm">Turno Reservado con Éxito</h3>
+                            <p class="text-[11px] text-sky-200">Municipalidad de General Pueyrredon &bull; Zoonosis</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModalComprobante()" class="text-white/70 hover:text-white text-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="p-5 space-y-4 text-xs">
+                    <!-- Código de Turno -->
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+                        <span class="text-[10px] text-emerald-700 uppercase font-bold tracking-wider">Comprobante Oficial Nº</span>
+                        <div id="receipt-code" class="text-xl font-extrabold text-emerald-800 tracking-wider">MGP-ZOO-2026-7842</div>
+                        <span class="text-[11px] text-emerald-600 font-medium">Validado por GIS: Domicilio verificado en Barrio Aeroparque</span>
+                    </div>
+
+                    <!-- Datos del Turno -->
+                    <div class="space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-slate-500 font-semibold">Titular:</span>
+                            <span id="receipt-titular" class="font-bold text-slate-800">Sebastián Miguel Di Pierro</span>
+                        </div>
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-slate-500 font-semibold">CUIL:</span>
+                            <span id="receipt-cuil" class="font-bold text-slate-800">20246992496</span>
+                        </div>
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-slate-500 font-semibold">Domicilio acreditado:</span>
+                            <span id="receipt-domicilio" class="font-bold text-slate-800">Jovellanos 1620 (Bº Aeroparque)</span>
+                        </div>
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-slate-500 font-semibold">Mascota:</span>
+                            <span id="receipt-mascota" class="font-bold text-slate-800">Canino - Macho (Mestizo, 2 años)</span>
+                        </div>
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-slate-500 font-semibold">Fecha y Hora:</span>
+                            <span id="receipt-datetime" class="font-bold text-blue-700">Martes 27/10/2026 - 07:30 hs</span>
+                        </div>
+                        <div class="flex justify-between pt-0.5">
+                            <span class="text-slate-500 font-semibold">Sede de Cirugía:</span>
+                            <span id="receipt-sede" class="font-bold text-slate-800 text-right">Sociedad de Fomento Aeroparque<br><span class="text-[11px] text-slate-500">Jovellanos 1620 (Antes de las 8:00 hs)</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Recordatorio Crítico -->
+                    <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-2.5 text-[11px] space-y-1">
+                        <p class="font-bold flex items-center gap-1.5">
+                            <i class="fa-solid fa-bell text-amber-600"></i> Importante el día de la cita:
+                        </p>
+                        <ul class="list-disc list-inside space-y-0.5 text-slate-700">
+                            <li>Presentarse con <strong>DNI que certifique domicilio en el barrio</strong> o servicio a su nombre.</li>
+                            <li>Cumplir con <strong>12 horas estrictas de ayuno sólido y líquido</strong>.</li>
+                            <li>Llevar manta de abrigo para el post-operatorio.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="flex items-center gap-2 pt-1">
+                        <button onclick="window.print()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-print"></i>
+                            <span>Imprimir Comprobante</span>
+                        </button>
+                        <button onclick="closeModalComprobante()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2.5 rounded-xl border border-slate-300 transition">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL MIS TURNOS -->
+        <div id="modal-mis-turnos" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+            <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+                <div class="flex items-center justify-between border-b pb-2">
+                    <h3 class="font-bold text-sm text-slate-800">Mis Turnos de Zoonosis</h3>
+                    <button onclick="closeModalMisTurnos()" class="text-slate-400 hover:text-slate-600">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+                <div class="text-xs text-slate-600 space-y-2">
+                    <p>Ingresá tu DNI o CUIL para consultar tus reservas activas:</p>
+                    <input type="text" value="20246992496" class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 font-semibold">
+                </div>
+                <div id="mis-turnos-list" class="bg-slate-50 p-3 rounded-xl border text-xs text-slate-600">
+                    <span class="text-slate-400 italic">No hay otros turnos previos registrados en los últimos 60 días.</span>
+                </div>
+                <button onclick="closeModalMisTurnos()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2.5 rounded-lg border">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+
+        <!-- CONSOLA FLOTANTE DE DEBUG DE LA API GIS (Para inspección y doc técnica) -->
+        <div id="gis-console-drawer" class="fixed bottom-4 right-4 z-40 max-w-md w-full bg-slate-900 text-slate-100 rounded-2xl shadow-2xl border border-slate-700 p-4 text-xs font-mono hidden">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="font-bold text-sky-400">API GIS MGP // Inspector</span>
+                </div>
+                <button onclick="toggleGisConsole()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div id="gis-console-log" class="text-[11px] space-y-1.5 max-h-48 overflow-y-auto text-slate-300">
+                <p class="text-slate-500">// Consola de peticiones GIS inicializada</p>
+                <p class="text-sky-300">API Base: https://gis.mardelplata.gob.ar/api/v1</p>
+                <p class="text-amber-300">Target Polígono: BARRIO AEROPARQUE [ID: 44]</p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // ==============================================================
+        // DEFINICIÓN DE GEOMETRÍAS Y POLÍGONO DE BARRIO AEROPARQUE (MGP)
+        // ==============================================================
+        // Polígono del Barrio Aeroparque de Mar del Plata
+        // Delimitado por: Av. Della Paolera, Jovellanos, Av. Constitución / Estrada, Falkner.
+        const AEROPARQUE_POLYGON = [
+            [-37.9410, -57.5750],
+            [-37.9390, -57.5630],
+            [-37.9480, -57.5580],
+            [-37.9570, -57.5660],
+            [-37.9540, -57.5780]
+        ];
+
+        // Sede del Quirófano Móvil: Sociedad de Fomento Aeroparque
+        const QUIROFANO_COORDS = {
+            lat: -37.9485,
+            lng: -57.5682,
+            nombre: "Sociedad de Fomento Aeroparque",
+            direccion: "Jovellanos 1620",
+            horario: "Martes a viernes antes de las 8:00 hs"
+        };
+
+        // Base de datos Geográfica de Mar del Plata para el simulador de Geocodificación
+        const DIRECCIONES_MGP = [
+            { calle: "jovellanos", alturaMin: 1000, alturaMax: 2000, lat: -37.9485, lng: -57.5682, barrio: "AEROPARQUE", dentro: true },
+            { calle: "della paolera", alturaMin: 1000, alturaMax: 1800, lat: -37.9440, lng: -57.5690, barrio: "AEROPARQUE", dentro: true },
+            { calle: "pelayo", alturaMin: 1200, alturaMax: 1900, lat: -37.9480, lng: -57.5720, barrio: "AEROPARQUE", dentro: true },
+            { calle: "rejon", alturaMin: 4500, alturaMax: 5500, lat: -37.9520, lng: -57.5740, barrio: "AEROPARQUE", dentro: true },
+            { calle: "santa cruz", alturaMin: 4500, alturaMax: 5500, lat: -37.9540, lng: -57.5730, barrio: "AEROPARQUE", dentro: true },
+            // Calles limítrofes o fuera
+            { calle: "felix u. camet", alturaMin: 1, alturaMax: 3000, lat: -37.9580, lng: -57.5380, barrio: "ESTRADA / COSTA", dentro: false },
+            { calle: "san martin", alturaMin: 2000, alturaMax: 3500, lat: -38.0010, lng: -57.5520, barrio: "CENTRO", dentro: false },
+            { calle: "colon", alturaMin: 1500, alturaMax: 4000, lat: -38.0050, lng: -57.5580, barrio: "CENTRO", dentro: false },
+            { calle: "guemes", alturaMin: 2500, alturaMax: 4000, lat: -38.0120, lng: -57.5450, barrio: "PLAYA GRANDE", dentro: false },
+            { calle: "canesa", alturaMin: 1, alturaMax: 1500, lat: -38.0350, lng: -57.5850, barrio: "SAN CARLOS / ZOONOSIS CENTRAL", dentro: false }
+        ];
+
+        // Estado del formulario
+        let currentVerification = {
+            verified: false,
+            addressText: "Jovellanos 1620",
+            inAeroparque: true,
+            barrioName: "AEROPARQUE",
+            coords: [-37.9485, -57.5682]
+        };
+
+        // Mapa Leaflet y capas
+        let mapInstance = null;
+        let userMarker = null;
+        let quirofanoMarker = null;
+        let polygonLayer = null;
+        let routeLine = null;
+
+        // Algoritmo Ray-Casting (Point-in-Polygon) para validar contra geometrías GIS
+        function isPointInPolygon(point, vs) {
+            const x = point[0], y = point[1];
+            let inside = false;
+            for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+                const xi = vs[i][0], yi = vs[i][1];
+                const xj = vs[j][0], yj = vs[j][1];
+                const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // Cálculo de distancia geodésica (Haversine)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radio de la Tierra en km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; // en km
+        }
+
+        // Genera la URL dinámica para abrir en Google Maps con origen y destino
+        function updateGoogleMapsLink(userAddr, userCoords) {
+            const originQuery = userCoords 
+                ? `${userCoords[0]},${userCoords[1]}` 
+                : encodeURIComponent(`${userAddr}, Mar del Plata, Buenos Aires, Argentina`);
+            const destinationQuery = `${QUIROFANO_COORDS.lat},${QUIROFANO_COORDS.lng}`;
+            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${originQuery}&destination=${destinationQuery}&travelmode=driving`;
+            
+            const btn = document.getElementById('btn-google-maps');
+            if (btn) {
+                btn.href = gmapsUrl;
+            }
+        }
+
+        // Ajusta el zoom del mapa para ver el polígono, el móvil y la casa del usuario
+        function fitMapBounds() {
+            if (!mapInstance || !polygonLayer) return;
+            const bounds = polygonLayer.getBounds();
+            if (userMarker) {
+                bounds.extend(userMarker.getLatLng());
+            }
+            mapInstance.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+        }
+
+        // Simula la llamada a la API GIS del Municipio:
+        // 1. Georreferenciación directa (Calle/Altura -> Lat/Lng)
+        // 2. Consulta de Polígono de Barrio
+        function geolocalizarDireccionMGP(addressString) {
+            logGisConsole(`➡️ GET /api/v1/gis/georef?q=${encodeURIComponent(addressString)}&partido=045`);
+            
+            const clean = addressString.toLowerCase().replace(/[.,]/g, '').trim();
+            
+            // Buscar si coincide con la base conocida
+            let matched = null;
+            for (const item of DIRECCIONES_MGP) {
+                if (clean.includes(item.calle)) {
+                    matched = item;
+                    break;
+                }
+            }
+
+            if (matched) {
+                const inPoly = isPointInPolygon([matched.lat, matched.lng], AEROPARQUE_POLYGON);
+                logGisConsole(`✅ Geocodificación OK: Coords [${matched.lat.toFixed(4)}, ${matched.lng.toFixed(4)}]`);
+                logGisConsole(`🔍 Spatial Intersect Polígono 44 (AEROPARQUE): ${inPoly ? 'TRUE (DENTRO)' : 'FALSE (FUERA)'}`);
+                
+                return {
+                    success: true,
+                    lat: matched.lat,
+                    lng: matched.lng,
+                    barrio: matched.barrio,
+                    dentroBarrio: inPoly || matched.dentro,
+                    mensaje: inPoly ? 'Pertenece al Barrio Aeroparque' : `Pertenece a ${matched.barrio}`
+                };
+            }
+
+            // Fallback para direcciones no indexadas
+            const isAeroparqueMention = clean.includes("aeroparque") || clean.includes("jovellanos") || clean.includes("paolera") || clean.includes("pelayo");
+            const coords = isAeroparqueMention ? [-37.9485, -57.5682] : [-37.9580, -57.5380];
+            const inPoly = isAeroparqueMention;
+
+            logGisConsole(`⚠️ Geocodificación estimada: Coords [${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}]`);
+            logGisConsole(`🔍 Spatial Intersect Polígono 44: ${inPoly ? 'TRUE' : 'FALSE'}`);
+
+            return {
+                success: true,
+                lat: coords[0],
+                lng: coords[1],
+                barrio: inPoly ? "AEROPARQUE" : "OTRO BARRIO DE MAR DEL PLATA",
+                dentroBarrio: inPoly,
+                mensaje: inPoly ? 'Pertenece al Barrio Aeroparque' : 'Fuera del polígono de Barrio Aeroparque'
+            };
+        }
+
+        function initLeafletMap() {
+            if (mapInstance) return;
+
+            // Centro en Barrio Aeroparque Jovellanos 1620
+            mapInstance = L.map('gis-map').setView([QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng], 14);
+
+            // Capa CartoDB Voyager: libre de bloqueos 403 y con estética cartográfica clara
+            const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                subdomains: 'abcd',
+                maxZoom: 19,
+                attribution: '&copy; CartoDB &copy; Municipalidad de General Pueyrredon GIS'
+            });
+
+            // En caso de fallo de red, fallback hacia ArcGIS World Street Map
+            cartoVoyager.on('tileerror', function() {
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 18,
+                    attribution: '&copy; Esri &copy; Municipalidad de Gral. Pueyrredon GIS'
+                }).addTo(mapInstance);
+            });
+
+            cartoVoyager.addTo(mapInstance);
+
+            // Dibujar el Polígono Oficial del Barrio Aeroparque
+            polygonLayer = L.polygon(AEROPARQUE_POLYGON, {
+                color: '#0284c7',
+                weight: 2.5,
+                opacity: 0.95,
+                fillColor: '#38bdf8',
+                fillOpacity: 0.25,
+                dashArray: '5, 5'
+            }).addTo(mapInstance);
+
+            polygonLayer.bindTooltip("<strong>Polígono Oficial: Barrio Aeroparque</strong><br>Zona Habilitada Quirófano Móvil", {
+                sticky: true
+            });
+
+            // Marcador fijo: Quirófano Móvil (Sociedad de Fomento)
+            const iconMobile = L.divIcon({
+                className: 'custom-pin-mobile',
+                html: `<div class="bg-blue-700 text-white p-2 rounded-full border-2 border-white shadow-lg flex items-center justify-center w-8 h-8 text-xs font-bold animate-pulse">
+                        <i class="fa-solid fa-truck-medical"></i>
+                       </div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            quirofanoMarker = L.marker([QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng], { icon: iconMobile })
+                .addTo(mapInstance)
+                .bindPopup(`<strong>${QUIROFANO_COORDS.nombre}</strong><br>${QUIROFANO_COORDS.direccion}<br><span class="text-xs text-blue-600 font-semibold">${QUIROFANO_COORDS.horario}</span>`);
+
+            // Marcador interactivo del usuario
+            updateUserMarkerOnMap(QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng, true, "Jovellanos 1620 (Misma sede)");
+        }
+
+        function updateUserMarkerOnMap(lat, lng, isInside, text) {
+            if (!mapInstance) return;
+
+            if (userMarker) {
+                mapInstance.removeLayer(userMarker);
+            }
+            if (routeLine) {
+                mapInstance.removeLayer(routeLine);
+            }
+
+            const pinColor = isInside ? 'bg-emerald-600' : 'bg-rose-600';
+            const iconUser = L.divIcon({
+                className: 'custom-pin-user',
+                html: `<div class="${pinColor} text-white p-2 rounded-full border-2 border-white shadow-xl flex items-center justify-center w-8 h-8 text-xs font-bold">
+                        <i class="fa-solid ${isInside ? 'fa-house-circle-check' : 'fa-house-circle-xmark'}"></i>
+                       </div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            const distanceKm = calculateDistance(lat, lng, QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng);
+            const distanceTxt = distanceKm < 1 
+                ? `${Math.round(distanceKm * 1000)} metros` 
+                : `${distanceKm.toFixed(1)} km`;
+
+            userMarker = L.marker([lat, lng], { icon: iconUser })
+                .addTo(mapInstance)
+                .bindPopup(`<strong>Tu Domicilio:</strong><br>${text}<br><span class="${isInside ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}">${isInside ? '✓ Dentro del Barrio Aeroparque' : '✗ Fuera de jurisdicción barrial'}</span><br><span class="text-[11px] text-slate-500">Distancia al Quirófano: ${distanceTxt}</span>`)
+                .openPopup();
+
+            // Dibujar línea conectora entre el domicilio y el quirófano móvil
+            const lineStyle = {
+                color: isInside ? '#059669' : '#dc2626',
+                weight: 2.5,
+                opacity: 0.8,
+                dashArray: '4, 6'
+            };
+            routeLine = L.polyline([[lat, lng], [QUIROFANO_COORDS.lat, QUIROFANO_COORDS.lng]], lineStyle).addTo(mapInstance);
+
+            // Actualizar enlace de Google Maps con la ruta real
+            updateGoogleMapsLink(text, [lat, lng]);
+
+            // Ajustar vista para que el polígono y los marcadores sean visibles
+            fitMapBounds();
+        }
+
+        function validarDireccionGIS() {
+            const inputVal = document.getElementById('user-direccion').value.trim();
+            if (!inputVal) {
+                showToast("Por favor ingresá una calle y altura.");
+                return;
+            }
+
+            const res = geolocalizarDireccionMGP(inputVal);
+            currentVerification = {
+                verified: true,
+                addressText: inputVal,
+                inAeroparque: res.dentroBarrio,
+                barrioName: res.barrio,
+                coords: [res.lat, res.lng]
+            };
+
+            const badge = document.getElementById('gis-status-badge');
+            const resultBox = document.getElementById('gis-result-box');
+
+            resultBox.classList.remove('hidden');
+
+            const gmapsLink = `https://www.google.com/maps/dir/?api=1&origin=${res.lat},${res.lng}&destination=${QUIROFANO_COORDS.lat},${QUIROFANO_COORDS.lng}`;
+
+            if (res.dentroBarrio) {
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
+                badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> En Polígono Aeroparque';
+
+                resultBox.className = "rounded-xl p-3.5 border bg-emerald-50 border-emerald-200 text-emerald-900 text-xs space-y-2 animate-in fade-in";
+                resultBox.innerHTML = `
+                    <div class="font-bold flex items-center justify-between text-emerald-800 text-sm">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-check text-emerald-600"></i> ¡Dirección Habilitada para Quirófano Móvil!</span>
+                        <a href="${gmapsLink}" target="_blank" rel="noopener noreferrer" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2.5 py-1 rounded transition flex items-center gap-1">
+                            <i class="fa-solid fa-diamond-turn-right"></i> Ver en Maps
+                        </a>
+                    </div>
+                    <p class="text-emerald-700">
+                        La API GIS del Municipio confirmó que <strong>"${inputVal}"</strong> pertenece al <strong>Barrio Aeroparque</strong>.
+                        Cumplís con el requisito de zonificación para castrar a tu mascota en la <strong>Soc. de Fomento Aeroparque (Jovellanos 1620)</strong>.
+                    </p>
+                `;
+            } else {
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300";
+                badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Fuera de Polígono';
+
+                resultBox.className = "rounded-xl p-3.5 border bg-rose-50 border-rose-200 text-rose-900 text-xs space-y-2 animate-in fade-in";
+                resultBox.innerHTML = `
+                    <div class="font-bold flex items-center justify-between text-rose-800 text-sm">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-xmark text-rose-600"></i> Dirección fuera de la zona del Quirófano Móvil</span>
+                        <a href="${gmapsLink}" target="_blank" rel="noopener noreferrer" class="text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold px-2.5 py-1 rounded transition flex items-center gap-1">
+                            <i class="fa-solid fa-diamond-turn-right"></i> Ver en Maps
+                        </a>
+                    </div>
+                    <p class="text-rose-700">
+                        Según el GIS Municipal, la dirección ingresada corresponde a <strong>${res.barrio}</strong>. 
+                        Por disposición de Zoonosis MGP, las unidades barriales son de atención exclusiva para residentes del barrio sede.
+                    </p>
+                    <p class="text-slate-600 text-[11px] pt-0.5">
+                        👉 <em>Podrás reservar turno seleccionando la sede central <strong>Zoonosis Central (Canesa y Guanahani)</strong> o esperar al turno del Quirófano Móvil en tu barrio.</em>
+                    </p>
+                `;
+            }
+
+            updateUserMarkerOnMap(res.lat, res.lng, res.dentroBarrio, inputVal);
+        }
+
+        function setTestAddress(addr) {
+            document.getElementById('user-direccion').value = addr;
+            validarDireccionGIS();
+        }
+
+        function handleLugarChange() {
+            const lugar = document.getElementById('select-lugar').value;
+            const help = document.getElementById('lugar-help-notice');
+            if (lugar === 'quirofano_aeroparque') {
+                help.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> <span>El Quirófano Móvil requiere validación de domicilio barrial por Sistema GIS del Municipio.</span>`;
+                help.className = "mt-1 text-[11px] text-amber-700 font-medium flex items-center gap-1.5";
+            } else {
+                help.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span>La Sede Central Zoonosis está abierta para residentes de cualquier barrio de Gral. Pueyrredon.</span>`;
+                help.className = "mt-1 text-[11px] text-emerald-700 font-medium flex items-center gap-1.5";
+            }
+        }
+
+        function selectEspecie(key, el) {
+            document.querySelectorAll('.especie-btn').forEach(btn => {
+                btn.className = "especie-btn border border-slate-300 bg-white text-slate-700 text-xs font-medium py-2.5 px-2 rounded-lg text-center hover:bg-slate-50 transition";
+            });
+            el.className = "especie-btn border-2 border-red-500 bg-red-50/50 text-red-700 text-xs font-bold py-2.5 px-2 rounded-lg text-center transition";
+            
+            const mapText = {
+                'canino_macho': 'Canino - Macho',
+                'canino_hembra': 'Canino - Hembra',
+                'felino_macho': 'Felino - Macho',
+                'felino_hembra': 'Felino - Hembra'
+            };
+            document.getElementById('pet-especie-sexo').value = mapText[key];
+        }
+
+        // ==============================================================
+        // LÓGICA DE CONSULTA DE TURNOS (REPLICA PANTALLA OFICIAL MGP)
+        // ==============================================================
+        function consultarTurnos() {
+            // Validar checkboxes obligatorios
+            const c1 = document.getElementById('check-consentimiento').checked;
+            const c2 = document.getElementById('check-requisitos').checked;
+            const c3 = document.getElementById('check-cuidados').checked;
+
+            if (!c1 || !c2 || !c3) {
+                showToast("Debes aceptar el consentimiento, requisitos y cuidados post operatorios para continuar.");
+                return;
+            }
+
+            // Asegurarse de que el domicilio fue validado con GIS
+            if (!currentVerification.verified) {
+                validarDireccionGIS();
+            }
+
+            const lugar = document.getElementById('select-lugar').value;
+            const dateDesde = document.getElementById('date-desde').value;
+            const dateHasta = document.getElementById('date-hasta').value;
+
+            document.getElementById('booking-container').classList.add('hidden');
+            document.getElementById('results-view').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            const resultsTitle = document.getElementById('results-title');
+            const resultsSubtitle = document.getElementById('results-subtitle');
+            const tableBody = document.getElementById('turnos-table-body');
+            const alertBox = document.getElementById('results-alert-box');
+
+            resultsSubtitle.textContent = `Del ${formatDateDisplay(dateDesde)} al ${formatDateDisplay(dateHasta)}`;
+
+            // CASO 1: Eligió Quirófano Móvil Aeroparque pero NO pertenece al barrio
+            if (lugar === 'quirofano_aeroparque' && !currentVerification.inAeroparque) {
+                resultsTitle.textContent = "Turnos no habilitados por Jurisdicción Barrial (GIS MGP)";
+                
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-slate-500 font-medium">
+                            <i class="fa-solid fa-map-location-dot text-rose-400 text-2xl mb-2 block"></i>
+                            No hay turnos disponibles en Quirófano Móvil Soc. de Fomento Aeroparque para vecinos con domicilio en <strong>${currentVerification.barrioName}</strong>.
+                        </td>
+                    </tr>
+                `;
+
+                alertBox.className = "bg-rose-50 border-2 border-rose-300 p-4 rounded-xl text-xs text-rose-900 space-y-2";
+                alertBox.innerHTML = `
+                    <div class="font-bold text-sm text-rose-900 flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>
+                        <span>Acceso restringido por Polígono GIS Municipal</span>
+                    </div>
+                    <p>
+                        Tu dirección ingresada (<strong>${currentVerification.addressText}</strong>) se encuentra en <strong>${currentVerification.barrioName}</strong>. 
+                        Los turnos de este quirófano móvil están reservados <strong>exclusivamente para los residentes del Barrio Aeroparque</strong> según Ordenanza Municipal.
+                    </p>
+                    <div class="pt-2 flex flex-wrap gap-2">
+                        <button onclick="cambiarASedeCentral()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg transition shadow-sm flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                            <span>Cambiar a Sede Central (Canesa y Guanahani)</span>
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // CASO 2: Quirófano Móvil Aeroparque Y ES DEL BARRIO (¡Habilitado!)
+            if (lugar === 'quirofano_aeroparque' && currentVerification.inAeroparque) {
+                resultsTitle.textContent = "Turnos disponibles para Castración en Quirófano Móvil Aeroparque";
+                
+                tableBody.innerHTML = `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-3 py-3 font-bold text-slate-700">Martes</td>
+                        <td class="px-3 py-3 font-semibold text-blue-700">27/10/2026 - 07:30 hs</td>
+                        <td class="px-3 py-3 text-slate-600">Soc. de Fomento Aeroparque (Jovellanos 1620)</td>
+                        <td class="px-3 py-3 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                4 disponibles
+                            </span>
+                        </td>
+                        <td class="px-3 py-3 text-right">
+                            <button onclick="reservarTurno('Martes 27/10/2026 - 07:30 hs', 'Sociedad de Fomento Aeroparque (Jovellanos 1620)')" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+                                Reservar
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-3 py-3 font-bold text-slate-700">Miércoles</td>
+                        <td class="px-3 py-3 font-semibold text-blue-700">28/10/2026 - 07:45 hs</td>
+                        <td class="px-3 py-3 text-slate-600">Soc. de Fomento Aeroparque (Jovellanos 1620)</td>
+                        <td class="px-3 py-3 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                2 disponibles
+                            </span>
+                        </td>
+                        <td class="px-3 py-3 text-right">
+                            <button onclick="reservarTurno('Miércoles 28/10/2026 - 07:45 hs', 'Sociedad de Fomento Aeroparque (Jovellanos 1620)')" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+                                Reservar
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-3 py-3 font-bold text-slate-700">Jueves</td>
+                        <td class="px-3 py-3 font-semibold text-blue-700">29/10/2026 - 07:30 hs</td>
+                        <td class="px-3 py-3 text-slate-600">Soc. de Fomento Aeroparque (Jovellanos 1620)</td>
+                        <td class="px-3 py-3 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                3 disponibles
+                            </span>
+                        </td>
+                        <td class="px-3 py-3 text-right">
+                            <button onclick="reservarTurno('Jueves 29/10/2026 - 07:30 hs', 'Sociedad de Fomento Aeroparque (Jovellanos 1620)')" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+                                Reservar
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-3 py-3 font-bold text-slate-700">Viernes</td>
+                        <td class="px-3 py-3 font-semibold text-blue-700">30/10/2026 - 07:45 hs</td>
+                        <td class="px-3 py-3 text-slate-600">Soc. de Fomento Aeroparque (Jovellanos 1620)</td>
+                        <td class="px-3 py-3 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                1 disponible
+                            </span>
+                        </td>
+                        <td class="px-3 py-3 text-right">
+                            <button onclick="reservarTurno('Viernes 30/10/2026 - 07:45 hs', 'Sociedad de Fomento Aeroparque (Jovellanos 1620)')" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+                                Reservar
+                            </button>
+                        </td>
+                    </tr>
+                `;
+
+                alertBox.className = "bg-blue-50 border border-blue-200 p-4 rounded-xl text-xs text-blue-900 space-y-1";
+                alertBox.innerHTML = `
+                    <div class="font-bold flex items-center gap-1.5 text-blue-800">
+                        <i class="fa-solid fa-clock text-blue-600"></i>
+                        <span>Horario de admisión estricto</span>
+                    </div>
+                    <p>En el Quirófano Móvil los turnos se recepcionan <strong>martes a viernes antes de las 8:00 hs puntual</strong>. Los animales ingresan por orden de llegada para su preparación prequirúrgica.</p>
+                `;
+                return;
+            }
+
+            // CASO 3: Sede Central Zoonosis Canesa y Guanahani
+            resultsTitle.textContent = "Turnos disponibles para Castración en Zoonosis Central";
+            tableBody.innerHTML = `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-3 py-3 font-bold text-slate-700">Miércoles</td>
+                    <td class="px-3 py-3 font-semibold text-blue-700">28/10/2026 - 08:30 hs</td>
+                    <td class="px-3 py-3 text-slate-600">Zoonosis y Bienestar Animal - Canesa y Guanahani</td>
+                    <td class="px-3 py-3 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            6 disponibles
+                        </span>
+                    </td>
+                    <td class="px-3 py-3 text-right">
+                        <button onclick="reservarTurno('Miércoles 28/10/2026 - 08:30 hs', 'Zoonosis Central - Canesa y Guanahani')" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+                            Reservar
+                        </button>
+                    </td>
+                </tr>
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-3 py-3 font-bold text-slate-700">Jueves</td>
+                    <td class="px-3 py-3 font-semibold text-blue-700">29/10/2026 - 09:15 hs</td>
+                    <td class="px-3 py-3 text-slate-600">Zoonosis y Bienestar Animal - Canesa y Guanahani</td>
+                    <td class="px-3 py-3 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            4 disponibles
+                        </span>
+                    </td>
+                    <td class="px-3 py-3 text-right">
+                        <button onclick="reservarTurno('Jueves 29/10/2026 - 09:15 hs', 'Zoonosis Central - Canesa y Guanahani')" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+                            Reservar
+                        </button>
+                    </td>
+                </tr>
+            `;
+
+            alertBox.className = "bg-blue-50 border border-blue-200 p-4 rounded-xl text-xs text-blue-900 space-y-1";
+            alertBox.innerHTML = `
+                <div class="font-bold flex items-center gap-1.5 text-blue-800">
+                    <i class="fa-solid fa-hospital text-blue-600"></i>
+                    <span>Sede Central Zoonosis Canesa y Guanahani</span>
+                </div>
+                <p>Presentarse 15 minutos antes con el animal en ayuno y el comprobante de turno.</p>
+            `;
+        }
+
+        function editarConsulta() {
+            document.getElementById('results-view').classList.add('hidden');
+            document.getElementById('booking-container').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cambiarASedeCentral() {
+            document.getElementById('select-lugar').value = 'zoonosis_central';
+            handleLugarChange();
+            consultarTurnos();
+        }
+
+        function reservarTurno(fechaHora, sedeTexto) {
+            const titular = document.getElementById('user-nombre').value;
+            const cuil = document.getElementById('user-cuil').value;
+            const especie = document.getElementById('pet-especie-sexo').value;
+            const raza = document.getElementById('pet-raza').value;
+            const edad = document.getElementById('pet-edad').value;
+            const direccion = document.getElementById('user-direccion').value;
+
+            // Llenar comprobante
+            const randomCode = 'MGP-ZOO-2026-' + Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('receipt-code').textContent = randomCode;
+            document.getElementById('receipt-titular').textContent = titular;
+            document.getElementById('receipt-cuil').textContent = cuil;
+            document.getElementById('receipt-domicilio').textContent = `${direccion} (${currentVerification.barrioName})`;
+            document.getElementById('receipt-mascota').textContent = `${especie} (${raza}, ${edad})`;
+            document.getElementById('receipt-datetime').textContent = fechaHora;
+            document.getElementById('receipt-sede').innerHTML = `${sedeTexto}`;
+
+            // Abrir modal
+            document.getElementById('modal-comprobante').classList.remove('hidden');
+
+            logGisConsole(`🎟️ RESERVA CONFIRMADA: Código ${randomCode} asignado a CUIL ${cuil}`);
+        }
+
+        function closeModalComprobante() {
+            document.getElementById('modal-comprobante').classList.add('hidden');
+        }
+
+        function openModalMisTurnos() {
+            document.getElementById('modal-mis-turnos').classList.remove('hidden');
+        }
+
+        function closeModalMisTurnos() {
+            document.getElementById('modal-mis-turnos').classList.add('hidden');
+        }
+
+        function toggleGisConsole() {
+            const el = document.getElementById('gis-console-drawer');
+            el.classList.toggle('hidden');
+        }
+
+        function logGisConsole(text) {
+            const logBox = document.getElementById('gis-console-log');
+            const p = document.createElement('p');
+            const time = new Date().toLocaleTimeString();
+            p.textContent = `[${time}] ${text}`;
+            logBox.appendChild(p);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function fakeDownload(tipo) {
+            showToast(`Descargando documento oficial: ${tipo}_Zoonosis_MGP.pdf`);
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2';
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+
+        function formatDateDisplay(yyyyMmDd) {
+            if (!yyyyMmDd) return '';
+            const parts = yyyyMmDd.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        function limpiarFormulario() {
+            document.getElementById('user-direccion').value = '';
+            document.getElementById('gis-result-box').classList.add('hidden');
+            document.getElementById('gis-status-badge').className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700";
+            document.getElementById('gis-status-badge').textContent = "Pendiente de Validación";
+            currentVerification = { verified: false, addressText: '', inAeroparque: false, barrioName: 'SIN VALIDAR', coords: [0, 0] };
+            showToast("Formulario restablecido");
+        }
+
+        function resetSimulator() {
+            location.reload();
+        }
+
+        // Inicialización al cargar la ventana
+        window.onload = function () {
+            initLeafletMap();
+            // Ejecutar una validación inicial con la dirección por defecto del ejemplo (Jovellanos 1620)
+            validarDireccionGIS();
+            logGisConsole("Sistema de Reserva de Turnos Zoonosis MGP iniciado correctamente.");
+        };
+    </script>
+</body>
+</html>
